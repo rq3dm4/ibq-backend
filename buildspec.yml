@@ -1,0 +1,26 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.11
+  build:
+    commands:
+      - echo "You are here:" && pwd && echo "It contains:" && ls -l
+      - echo "One folder up is:" && ls -l ../
+      - AWS_Account=$(aws sts get-caller-identity --query "Account" --output text)
+      - aws ecr get-login-password --region ${AWS_REGION}| docker login --username AWS --password-stdin "${AWS_Account}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+      - docker build -t "${AWS_ECR}:latest" .
+      - docker tag "${AWS_ECR}:latest" "${AWS_Account}.dkr.ecr.${AWS_REGION}.amazonaws.com/${AWS_ECR}:latest"
+      - docker push "${AWS_Account}.dkr.ecr.${AWS_REGION}.amazonaws.com/${AWS_ECR}:latest"
+
+  post_build:
+    commands:
+      - aws ecs update-service --service $AWS_ECS_SERVICE --force-new-deployment --cluster $AWS_ECS_CLUSTER --output text
+artifacts:
+  files:
+    - '*.yml'
+    - 'params/*.json'
+    - 'params/*.yml'
+    - 'applications/*.yml'
+    # - '**/*'
